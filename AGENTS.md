@@ -12,4 +12,4 @@ A Rust based system for orchestating personal AI Agents.
 
 ## Coding guide
 
-Add or Update DEVELOPER NOTES in ./notes after implementing a plan to keep a memory of changes.
+Add or Update DEVELOPER NOTES in ./notes after implementing a plan to keep a memory of changes (your memories).

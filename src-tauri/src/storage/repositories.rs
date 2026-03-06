@@ -18,6 +18,11 @@ pub enum StorageError {
     Database(#[from] sqlx::Error),
     #[error("migration error: {0}")]
     Migration(#[from] sqlx::migrate::MigrateError),
+    #[error("mapping error in {context}: {value}")]
+    Mapping {
+        context: &'static str,
+        value: String,
+    },
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),
 }
@@ -39,6 +44,11 @@ impl StorageError {
                 code: "storage_migration_error".to_string(),
                 message: error.to_string(),
                 details: None,
+            },
+            Self::Mapping { context, value } => ErrorEnvelope {
+                code: "storage_mapping_error".to_string(),
+                message: format!("invalid value for {context}"),
+                details: Some(value.clone()),
             },
             Self::NotImplemented(message) => ErrorEnvelope {
                 code: "storage_not_implemented".to_string(),
