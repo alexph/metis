@@ -10,6 +10,18 @@ use metis_contract::{
 use sqlx::SqlitePool;
 use thiserror::Error;
 
+use crate::{
+    core::time::now_utc_rfc3339,
+    storage::{
+        mappings::{
+            branch_record_to_contract, channel_contract_to_record, channel_record_to_contract,
+            channel_status_to_storage, history_record_to_contract, task_contract_to_record,
+            task_record_to_contract, worker_record_to_contract,
+        },
+        models::{BranchRecord, ChannelRecord, HistoryRecord, TaskRecord, WorkerRecord},
+    },
+};
+
 #[derive(Debug, Error)]
 pub enum StorageError {
     #[error("io error: {0}")]
@@ -129,20 +141,87 @@ impl SqliteChannelRepository {
 }
 
 impl ChannelRepository for SqliteChannelRepository {
-    fn create(&self, _channel: Channel) -> Result<Channel, StorageError> {
-        Err(StorageError::NotImplemented("channels.create"))
+    fn create(&self, channel: Channel) -> Result<Channel, StorageError> {
+        let record = channel_contract_to_record(channel);
+        let pool = self._pool.clone();
+
+        tauri::async_runtime::block_on(async move {
+            sqlx::query(
+                "INSERT INTO channels (id, title, source_type, source_ref, status, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(&record.id)
+            .bind(&record.title)
+            .bind(&record.source_type)
+            .bind(&record.source_ref)
+            .bind(&record.status)
+            .bind(&record.created_at)
+            .bind(&record.updated_at)
+            .execute(&pool)
+            .await?;
+
+            let inserted = sqlx::query_as::<_, ChannelRecord>(
+                "SELECT id, title, source_type, source_ref, status, created_at, updated_at
+                 FROM channels WHERE id = ?",
+            )
+            .bind(&record.id)
+            .fetch_one(&pool)
+            .await?;
+
+            channel_record_to_contract(inserted)
+        })
     }
 
-    fn get(&self, _id: &str) -> Result<Option<Channel>, StorageError> {
-        Err(StorageError::NotImplemented("channels.get"))
+    fn get(&self, id: &str) -> Result<Option<Channel>, StorageError> {
+        let pool = self._pool.clone();
+        let id = id.to_string();
+
+        tauri::async_runtime::block_on(async move {
+            let record = sqlx::query_as::<_, ChannelRecord>(
+                "SELECT id, title, source_type, source_ref, status, created_at, updated_at
+                 FROM channels WHERE id = ?",
+            )
+            .bind(id)
+            .fetch_optional(&pool)
+            .await?;
+
+            record.map(channel_record_to_contract).transpose()
+        })
     }
 
     fn list(&self) -> Result<Vec<Channel>, StorageError> {
-        Err(StorageError::NotImplemented("channels.list"))
+        let pool = self._pool.clone();
+
+        tauri::async_runtime::block_on(async move {
+            let records = sqlx::query_as::<_, ChannelRecord>(
+                "SELECT id, title, source_type, source_ref, status, created_at, updated_at
+                 FROM channels ORDER BY created_at ASC",
+            )
+            .fetch_all(&pool)
+            .await?;
+
+            records
+                .into_iter()
+                .map(channel_record_to_contract)
+                .collect::<Result<Vec<_>, _>>()
+        })
     }
 
-    fn update_status(&self, _id: &str, _status: ChannelStatus) -> Result<(), StorageError> {
-        Err(StorageError::NotImplemented("channels.update_status"))
+    fn update_status(&self, id: &str, status: ChannelStatus) -> Result<(), StorageError> {
+        let pool = self._pool.clone();
+        let id = id.to_string();
+        let status_value = channel_status_to_storage(status);
+        let updated_at = now_utc_rfc3339();
+
+        tauri::async_runtime::block_on(async move {
+            sqlx::query("UPDATE channels SET status = ?, updated_at = ? WHERE id = ?")
+                .bind(status_value)
+                .bind(updated_at)
+                .bind(id)
+                .execute(&pool)
+                .await?;
+            Ok(())
+        })
     }
 }
 
@@ -162,8 +241,21 @@ impl BranchRepository for SqliteBranchRepository {
         Err(StorageError::NotImplemented("branches.create"))
     }
 
-    fn list_by_channel(&self, _channel_id: &str) -> Result<Vec<Branch>, StorageError> {
-        Err(StorageError::NotImplemented("branches.list_by_channel"))
+    fn list_by_channel(&self, channel_id: &str) -> Result<Vec<Branch>, StorageError> {
+        let pool = self._pool.clone();
+        let channel_id = channel_id.to_string();
+
+        tauri::async_runtime::block_on(async move {
+            let records = sqlx::query_as::<_, BranchRecord>(
+                "SELECT id, channel_id, parent_branch_id, name, is_active, created_at, updated_at
+                 FROM branches WHERE channel_id = ? ORDER BY created_at ASC",
+            )
+            .bind(channel_id)
+            .fetch_all(&pool)
+            .await?;
+
+            Ok(records.into_iter().map(branch_record_to_contract).collect())
+        })
     }
 }
 
@@ -179,16 +271,76 @@ impl SqliteTaskRepository {
 }
 
 impl TaskRepository for SqliteTaskRepository {
-    fn enqueue(&self, _task: Task) -> Result<Task, StorageError> {
-        Err(StorageError::NotImplemented("tasks.enqueue"))
+    fn enqueue(&self, task: Task) -> Result<Task, StorageError> {
+        let record = task_contract_to_record(task);
+        let pool = self._pool.clone();
+
+        tauri::async_runtime::block_on(async move {
+            sqlx::query(
+                "INSERT INTO tasks (id, channel_id, branch_id, kind, state, priority, payload_json, created_at, updated_at, started_at, finished_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(&record.id)
+            .bind(&record.channel_id)
+            .bind(&record.branch_id)
+            .bind(&record.kind)
+            .bind(&record.state)
+            .bind(record.priority)
+            .bind(&record.payload_json)
+            .bind(&record.created_at)
+            .bind(&record.updated_at)
+            .bind(&record.started_at)
+            .bind(&record.finished_at)
+            .execute(&pool)
+            .await?;
+
+            let inserted = sqlx::query_as::<_, TaskRecord>(
+                "SELECT id, channel_id, branch_id, kind, state, priority, payload_json, created_at, updated_at, started_at, finished_at
+                 FROM tasks WHERE id = ?",
+            )
+            .bind(&record.id)
+            .fetch_one(&pool)
+            .await?;
+
+            task_record_to_contract(inserted)
+        })
     }
 
-    fn get(&self, _id: &str) -> Result<Option<Task>, StorageError> {
-        Err(StorageError::NotImplemented("tasks.get"))
+    fn get(&self, id: &str) -> Result<Option<Task>, StorageError> {
+        let pool = self._pool.clone();
+        let id = id.to_string();
+
+        tauri::async_runtime::block_on(async move {
+            let record = sqlx::query_as::<_, TaskRecord>(
+                "SELECT id, channel_id, branch_id, kind, state, priority, payload_json, created_at, updated_at, started_at, finished_at
+                 FROM tasks WHERE id = ?",
+            )
+            .bind(id)
+            .fetch_optional(&pool)
+            .await?;
+
+            record.map(task_record_to_contract).transpose()
+        })
     }
 
-    fn list_by_channel(&self, _channel_id: &str) -> Result<Vec<Task>, StorageError> {
-        Err(StorageError::NotImplemented("tasks.list_by_channel"))
+    fn list_by_channel(&self, channel_id: &str) -> Result<Vec<Task>, StorageError> {
+        let pool = self._pool.clone();
+        let channel_id = channel_id.to_string();
+
+        tauri::async_runtime::block_on(async move {
+            let records = sqlx::query_as::<_, TaskRecord>(
+                "SELECT id, channel_id, branch_id, kind, state, priority, payload_json, created_at, updated_at, started_at, finished_at
+                 FROM tasks WHERE channel_id = ? ORDER BY created_at ASC",
+            )
+            .bind(channel_id)
+            .fetch_all(&pool)
+            .await?;
+
+            records
+                .into_iter()
+                .map(task_record_to_contract)
+                .collect::<Result<Vec<_>, _>>()
+        })
     }
 
     fn update_state(&self, _id: &str, _state: TaskState) -> Result<(), StorageError> {
@@ -212,8 +364,24 @@ impl WorkerRepository for SqliteWorkerRepository {
         Err(StorageError::NotImplemented("workers.create"))
     }
 
-    fn get_by_task(&self, _task_id: &str) -> Result<Vec<Worker>, StorageError> {
-        Err(StorageError::NotImplemented("workers.get_by_task"))
+    fn get_by_task(&self, task_id: &str) -> Result<Vec<Worker>, StorageError> {
+        let pool = self._pool.clone();
+        let task_id = task_id.to_string();
+
+        tauri::async_runtime::block_on(async move {
+            let records = sqlx::query_as::<_, WorkerRecord>(
+                "SELECT id, task_id, worker_type, state, attempt, last_heartbeat_at, started_at, finished_at, created_at, updated_at
+                 FROM workers WHERE task_id = ? ORDER BY created_at ASC",
+            )
+            .bind(task_id)
+            .fetch_all(&pool)
+            .await?;
+
+            records
+                .into_iter()
+                .map(worker_record_to_contract)
+                .collect::<Result<Vec<_>, _>>()
+        })
     }
 
     fn update_state(&self, _id: &str, _state: WorkerState) -> Result<(), StorageError> {
@@ -241,11 +409,43 @@ impl HistoryRepository for SqliteHistoryRepository {
         Err(StorageError::NotImplemented("history.append"))
     }
 
-    fn list_by_channel(&self, _channel_id: &str) -> Result<Vec<HistoryEvent>, StorageError> {
-        Err(StorageError::NotImplemented("history.list_by_channel"))
+    fn list_by_channel(&self, channel_id: &str) -> Result<Vec<HistoryEvent>, StorageError> {
+        let pool = self._pool.clone();
+        let channel_id = channel_id.to_string();
+
+        tauri::async_runtime::block_on(async move {
+            let records = sqlx::query_as::<_, HistoryRecord>(
+                "SELECT id, channel_id, branch_id, task_id, worker_id, event_type, role, content_json, correlation_id, created_at
+                 FROM history WHERE channel_id = ? ORDER BY created_at ASC",
+            )
+            .bind(channel_id)
+            .fetch_all(&pool)
+            .await?;
+
+            records
+                .into_iter()
+                .map(history_record_to_contract)
+                .collect::<Result<Vec<_>, _>>()
+        })
     }
 
-    fn list_by_branch(&self, _branch_id: &str) -> Result<Vec<HistoryEvent>, StorageError> {
-        Err(StorageError::NotImplemented("history.list_by_branch"))
+    fn list_by_branch(&self, branch_id: &str) -> Result<Vec<HistoryEvent>, StorageError> {
+        let pool = self._pool.clone();
+        let branch_id = branch_id.to_string();
+
+        tauri::async_runtime::block_on(async move {
+            let records = sqlx::query_as::<_, HistoryRecord>(
+                "SELECT id, channel_id, branch_id, task_id, worker_id, event_type, role, content_json, correlation_id, created_at
+                 FROM history WHERE branch_id = ? ORDER BY created_at ASC",
+            )
+            .bind(branch_id)
+            .fetch_all(&pool)
+            .await?;
+
+            records
+                .into_iter()
+                .map(history_record_to_contract)
+                .collect::<Result<Vec<_>, _>>()
+        })
     }
 }

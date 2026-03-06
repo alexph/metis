@@ -58,3 +58,60 @@ Real query implementations, state transitions, and replay behavior should be add
 - Updated bootstrap in `src-tauri/src/lib.rs` to return initialized `DesktopCommandServices` using real DB-backed service when setup succeeds.
 - Kept resilience fallback: app still starts with stub service if bootstrap fails.
 - Added planning artifact `plans/006_desktop_service_integration_plan.md`.
+
+## 007 implementation update (first real repository methods)
+
+- Added first concrete repository behavior in `src-tauri/src/storage/repositories.rs` for channels:
+  - `create`
+  - `get`
+  - `list`
+  - `update_status`
+- Implemented SQLx query path with explicit mapping usage (`channel_contract_to_record`, `channel_record_to_contract`).
+- Added `sqlx::FromRow` derive for `ChannelRecord` in `src-tauri/src/storage/models/channel.rs`.
+- Added exported mapping helper `channel_status_to_storage` for status persistence consistency.
+- Added planning artifact `plans/007_channels_repository_plan.md` to capture this first real data-path phase.
+
+## 008 implementation update (channel-scoped branch/task reads)
+
+- Implemented concrete `list_by_channel` reads in `src-tauri/src/storage/repositories.rs` for:
+  - `SqliteBranchRepository`
+  - `SqliteTaskRepository`
+- Added SQLx row decoding derives to support typed queries:
+  - `src-tauri/src/storage/models/branch.rs`
+  - `src-tauri/src/storage/models/task.rs`
+- Reused mapping boundaries:
+  - `branch_record_to_contract`
+  - `task_record_to_contract`
+- Added planning artifact `plans/008_channel_related_queries_plan.md`.
+
+## Planning memory update (009)
+
+- Added `plans/009_services_implementation_plan.md` to define the next phase for concrete domain service implementations.
+- Plan establishes service responsibilities, validation/error boundaries, and dependency direction from adapters -> services -> repositories.
+
+## 009 implementation update (domain services)
+
+- Implemented concrete domain service layers with validation and typed service errors:
+  - `src-tauri/src/channels/mod.rs`
+  - `src-tauri/src/branches/mod.rs`
+  - `src-tauri/src/tasks/mod.rs`
+  - `src-tauri/src/workers/mod.rs`
+  - `src-tauri/src/history/mod.rs`
+- Added shared service error type at `src-tauri/src/core/service_error.rs` and exported it from `src-tauri/src/core/mod.rs`.
+- Updated desktop adapter error mapping to include `DesktopAdapterError::Service` and conversion from `ServiceError`.
+- Refactored `src-tauri/src/adapters/desktop/service.rs` to delegate through domain services instead of calling repositories directly.
+- Added concrete lifecycle transition guards for task/worker state helper functions and used them in service update methods.
+
+## 010 implementation update (repository read-path expansion)
+
+- Implemented additional concrete repository methods in `src-tauri/src/storage/repositories.rs`:
+  - `tasks.enqueue`
+  - `tasks.get`
+  - `workers.get_by_task`
+  - `history.list_by_channel`
+  - `history.list_by_branch`
+- Added SQLx row decoding support for queried models:
+  - `src-tauri/src/storage/models/worker.rs`
+  - `src-tauri/src/storage/models/history.rs`
+- Reused explicit mapping functions for all returned contract DTOs.
+- Added planning artifact `plans/010_repository_read_paths_plan.md`.

@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct HistoryRecord {
     pub id: String,
     pub channel_id: String,

@@ -12,43 +12,100 @@ use crate::{
         },
         errors::DesktopAdapterError,
     },
+    branches::{BranchDomainService, BranchService},
+    channels::{ChannelDomainService, ChannelService},
+    history::{HistoryDomainService, HistoryService},
     storage::repositories::{
-        BranchRepository, ChannelRepository, HistoryRepository, SqliteBranchRepository,
-        SqliteChannelRepository, SqliteHistoryRepository, SqliteTaskRepository,
-        SqliteWorkerRepository, TaskRepository, WorkerRepository,
+        SqliteBranchRepository, SqliteChannelRepository, SqliteHistoryRepository,
+        SqliteTaskRepository, SqliteWorkerRepository,
     },
+    tasks::{TaskDomainService, TaskService},
+    workers::{WorkerDomainService, WorkerService},
 };
 
 pub struct SqliteDesktopCommandService {
-    channels: SqliteChannelRepository,
-    branches: SqliteBranchRepository,
-    tasks: SqliteTaskRepository,
-    workers: SqliteWorkerRepository,
-    history: SqliteHistoryRepository,
+    channels: ChannelDomainService<SqliteChannelRepository>,
+    branches:
+        BranchDomainService<SqliteBranchRepository, ChannelDomainService<SqliteChannelRepository>>,
+    tasks: TaskDomainService<
+        SqliteTaskRepository,
+        ChannelDomainService<SqliteChannelRepository>,
+        BranchDomainService<SqliteBranchRepository, ChannelDomainService<SqliteChannelRepository>>,
+    >,
+    workers: WorkerDomainService<
+        SqliteWorkerRepository,
+        TaskDomainService<
+            SqliteTaskRepository,
+            ChannelDomainService<SqliteChannelRepository>,
+            BranchDomainService<
+                SqliteBranchRepository,
+                ChannelDomainService<SqliteChannelRepository>,
+            >,
+        >,
+    >,
+    history: HistoryDomainService<SqliteHistoryRepository>,
 }
 
 impl SqliteDesktopCommandService {
     pub fn new(pool: SqlitePool) -> Self {
+        let channel_repo_for_channels = SqliteChannelRepository::new(pool.clone());
+        let channel_repo_for_branches = SqliteChannelRepository::new(pool.clone());
+        let channel_repo_for_tasks = SqliteChannelRepository::new(pool.clone());
+        let channel_repo_for_worker_tasks = SqliteChannelRepository::new(pool.clone());
+
+        let branch_repo_for_branches = SqliteBranchRepository::new(pool.clone());
+        let branch_repo_for_tasks = SqliteBranchRepository::new(pool.clone());
+        let branch_repo_for_worker_tasks = SqliteBranchRepository::new(pool.clone());
+
+        let task_repo_for_tasks = SqliteTaskRepository::new(pool.clone());
+        let task_repo_for_workers = SqliteTaskRepository::new(pool.clone());
+
+        let channel_service = ChannelDomainService::new(channel_repo_for_channels);
+        let branch_service = BranchDomainService::new(
+            branch_repo_for_branches,
+            ChannelDomainService::new(channel_repo_for_branches),
+        );
+        let task_service = TaskDomainService::new(
+            task_repo_for_tasks,
+            ChannelDomainService::new(channel_repo_for_tasks),
+            BranchDomainService::new(
+                branch_repo_for_tasks,
+                ChannelDomainService::new(channel_repo_for_worker_tasks),
+            ),
+        );
+
         Self {
-            channels: SqliteChannelRepository::new(pool.clone()),
-            branches: SqliteBranchRepository::new(pool.clone()),
-            tasks: SqliteTaskRepository::new(pool.clone()),
-            workers: SqliteWorkerRepository::new(pool.clone()),
-            history: SqliteHistoryRepository::new(pool),
+            channels: channel_service,
+            branches: branch_service,
+            tasks: task_service,
+            workers: WorkerDomainService::new(
+                SqliteWorkerRepository::new(pool.clone()),
+                TaskDomainService::new(
+                    task_repo_for_workers,
+                    ChannelDomainService::new(SqliteChannelRepository::new(pool.clone())),
+                    BranchDomainService::new(
+                        branch_repo_for_worker_tasks,
+                        ChannelDomainService::new(SqliteChannelRepository::new(pool.clone())),
+                    ),
+                ),
+            ),
+            history: HistoryDomainService::new(SqliteHistoryRepository::new(pool)),
         }
     }
 }
 
 impl DesktopCommandService for SqliteDesktopCommandService {
     fn channels_list(&self) -> Result<Vec<Channel>, DesktopAdapterError> {
-        self.channels.list().map_err(Into::into)
+        self.channels.list_channels().map_err(Into::into)
     }
 
     fn channels_create(
         &self,
         request: CreateChannelRequest,
     ) -> Result<Channel, DesktopAdapterError> {
-        self.channels.create(request.channel).map_err(Into::into)
+        self.channels
+            .create_channel(request.channel)
+            .map_err(Into::into)
     }
 
     fn branches_list_by_channel(
@@ -78,7 +135,7 @@ impl DesktopCommandService for SqliteDesktopCommandService {
         request: ListWorkersByTaskRequest,
     ) -> Result<Vec<Worker>, DesktopAdapterError> {
         self.workers
-            .get_by_task(&request.task_id)
+            .list_by_task(&request.task_id)
             .map_err(Into::into)
     }
 

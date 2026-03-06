@@ -212,6 +212,10 @@ fn format_channel_status(value: ChannelStatus) -> String {
     .to_string()
 }
 
+pub fn channel_status_to_storage(value: ChannelStatus) -> String {
+    format_channel_status(value)
+}
+
 fn parse_task_state(value: &str) -> Result<TaskState, StorageError> {
     match value.to_ascii_lowercase().as_str() {
         "queued" => Ok(TaskState::Queued),
