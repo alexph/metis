@@ -77,6 +77,25 @@ Note: message schema should remain compatible with common LLM chat formats.
 - Agent integration via Rig crate
 - Agent implementation for now: stub response (`"hello"`)
 
+## Cross-cutting conventions
+
+Define these conventions in scaffolding now to prevent future refactors:
+
+- IDs and timestamps:
+  - Use one ID strategy consistently (UUID or ULID).
+  - Use UTC timestamps in a single format across storage and contracts.
+- Lifecycle state machines:
+  - Define explicit enum states for `task` and `worker` lifecycles.
+  - Define valid transitions as interfaces/placeholders.
+- Versioning:
+  - Include `schema_version` / `contract_version` strategy in storage and shared contracts.
+- Error model:
+  - Define a shared error envelope (`code`, `message`, optional `details`) for all adapters.
+- Config and paths:
+  - Define config and data path conventions under `~/.metis/` (db, config, logs).
+- Observability baseline:
+  - Scaffold structured logging and correlation/trace IDs across runtime boundaries.
+
 ## Project structure target
 
 Current baseline:

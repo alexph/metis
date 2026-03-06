@@ -1,0 +1,8 @@
+[package]
+name = "metis-contract"
+version = "0.1.0"
+edition = "2021"
+description = "Transport-agnostic contracts for Metis"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
