@@ -39,3 +39,22 @@ Real query implementations, state transitions, and replay behavior should be add
 - Wired command stubs into Tauri invoke handling in `src-tauri/src/lib.rs`.
 - Added typed event identifiers and a `DesktopEvent` enum payload boundary with a publish trait (`DesktopEventPublisher`) and no-op publisher.
 - Adapter command surface returns structured `CommandResponse<T>` with shared `ErrorEnvelope` for not-implemented responses.
+
+## 005 implementation update (command service wiring)
+
+- Added `DesktopCommandService` trait in `src-tauri/src/adapters/desktop/commands.rs` for the full command operation surface.
+- Added `StubDesktopCommandService` and `DesktopCommandServices` container using `Arc<dyn DesktopCommandService + Send + Sync>`.
+- Updated Tauri commands to resolve managed state (`tauri::State<DesktopCommandServices>`) and delegate calls through the service trait.
+- Added centralized result mapping helper to convert adapter `Result<T, DesktopAdapterError>` into `CommandResponse<T>`.
+- Registered stub command services in app bootstrap via `.manage(DesktopCommandServices::new_stub())`.
+- Added planning artifact `plans/005_desktop_command_stubs_plan.md` to capture this boundary as a formal phase.
+
+## 006 implementation update (concrete desktop service)
+
+- Added concrete command service implementation at `src-tauri/src/adapters/desktop/service.rs`.
+- Service composes SQLite repository placeholders and delegates command operations through repository traits:
+  - channels, branches, tasks, workers, history
+- Added storage error propagation into adapter surface via `DesktopAdapterError::Storage` and `From<StorageError>`.
+- Updated bootstrap in `src-tauri/src/lib.rs` to return initialized `DesktopCommandServices` using real DB-backed service when setup succeeds.
+- Kept resilience fallback: app still starts with stub service if bootstrap fails.
+- Added planning artifact `plans/006_desktop_service_integration_plan.md`.

@@ -1,9 +1,18 @@
 use metis_contract::error::ErrorEnvelope;
 
-#[derive(Debug, Clone)]
+use crate::storage::StorageError;
+
+#[derive(Debug)]
 pub enum DesktopAdapterError {
     NotImplemented(&'static str),
+    Storage(StorageError),
     Internal(String),
+}
+
+impl From<StorageError> for DesktopAdapterError {
+    fn from(value: StorageError) -> Self {
+        Self::Storage(value)
+    }
 }
 
 impl DesktopAdapterError {
@@ -14,6 +23,7 @@ impl DesktopAdapterError {
                 message: format!("desktop adapter operation is not implemented: {operation}"),
                 details: None,
             },
+            Self::Storage(error) => error.to_envelope(),
             Self::Internal(message) => ErrorEnvelope {
                 code: "desktop_internal_error".to_string(),
                 message: "desktop adapter internal error".to_string(),
