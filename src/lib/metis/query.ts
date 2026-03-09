@@ -4,8 +4,20 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
+import { useEffect } from 'react'
 
 import { metisClient } from './client'
+import {
+  syncBranches,
+  syncChannels,
+  syncHistory,
+  syncTasks,
+  syncWorkers,
+  upsertChannel,
+  upsertHistory,
+  upsertTask,
+  upsertWorker,
+} from './db'
 import type {
   AppendHistoryRequest,
   Channel,
@@ -41,57 +53,106 @@ export const metisQueryKeys = {
 }
 
 export function useChannelsQuery() {
-  return useQuery({
+  const query = useQuery({
     queryKey: metisQueryKeys.channels(),
     queryFn: () => metisClient.channelsList(),
   })
+
+  useEffect(() => {
+    if (query.data) {
+      syncChannels(query.data)
+    }
+  }, [query.data])
+
+  return query
 }
 
 export function useBranchesByChannelQuery(request: ListBranchesByChannelRequest) {
-  return useQuery({
+  const query = useQuery({
     queryKey: metisQueryKeys.branchesByChannel(request.channel_id),
     queryFn: () => metisClient.branchesListByChannel(request),
     enabled: request.channel_id.trim().length > 0,
   })
+
+  useEffect(() => {
+    if (query.data) {
+      syncBranches(query.data)
+    }
+  }, [query.data])
+
+  return query
 }
 
 export function useTasksByChannelQuery(request: ListTasksByChannelRequest) {
-  return useQuery({
+  const query = useQuery({
     queryKey: metisQueryKeys.tasksByChannel(request.channel_id),
     queryFn: () => metisClient.tasksListByChannel(request),
     enabled: request.channel_id.trim().length > 0,
   })
+
+  useEffect(() => {
+    if (query.data) {
+      syncTasks(query.data)
+    }
+  }, [query.data])
+
+  return query
 }
 
 export function useWorkersByTaskQuery(request: ListWorkersByTaskRequest) {
-  return useQuery({
+  const query = useQuery({
     queryKey: metisQueryKeys.workersByTask(request.task_id),
     queryFn: () => metisClient.workersListByTask(request),
     enabled: request.task_id.trim().length > 0,
   })
+
+  useEffect(() => {
+    if (query.data) {
+      syncWorkers(query.data)
+    }
+  }, [query.data])
+
+  return query
 }
 
 export function useHistoryByChannelQuery(request: ListHistoryByChannelRequest) {
-  return useQuery({
+  const query = useQuery({
     queryKey: metisQueryKeys.historyByChannel(request.channel_id),
     queryFn: () => metisClient.historyListByChannel(request),
     enabled: request.channel_id.trim().length > 0,
   })
+
+  useEffect(() => {
+    if (query.data) {
+      syncHistory(query.data)
+    }
+  }, [query.data])
+
+  return query
 }
 
 export function useHistoryByBranchQuery(request: ListHistoryByBranchRequest) {
-  return useQuery({
+  const query = useQuery({
     queryKey: metisQueryKeys.historyByBranch(request.branch_id),
     queryFn: () => metisClient.historyListByBranch(request),
     enabled: request.branch_id.trim().length > 0,
   })
+
+  useEffect(() => {
+    if (query.data) {
+      syncHistory(query.data)
+    }
+  }, [query.data])
+
+  return query
 }
 
 export function useCreateChannelMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (request: CreateChannelRequest) => metisClient.channelsCreate(request),
-    onSuccess: () => {
+    onSuccess: (channel: Channel) => {
+      upsertChannel(channel)
       void queryClient.invalidateQueries({ queryKey: metisQueryKeys.channels() })
     },
   })
@@ -103,6 +164,7 @@ export function useUpdateChannelStatusMutation() {
     mutationFn: (request: UpdateChannelStatusRequest) =>
       metisClient.channelsUpdateStatus(request),
     onSuccess: (channel: Channel) => {
+      upsertChannel(channel)
       void queryClient.invalidateQueries({ queryKey: metisQueryKeys.channels() })
       void queryClient.invalidateQueries({
         queryKey: metisQueryKeys.branchesByChannel(channel.id),
@@ -122,6 +184,7 @@ export function useEnqueueTaskMutation() {
   return useMutation({
     mutationFn: (request: EnqueueTaskRequest) => metisClient.tasksEnqueue(request),
     onSuccess: (task: Task) => {
+      upsertTask(task)
       void queryClient.invalidateQueries({
         queryKey: metisQueryKeys.tasksByChannel(task.channel_id),
       })
@@ -134,6 +197,7 @@ export function useUpdateTaskStateMutation() {
   return useMutation({
     mutationFn: (request: UpdateTaskStateRequest) => metisClient.tasksUpdateState(request),
     onSuccess: (task: Task) => {
+      upsertTask(task)
       void queryClient.invalidateQueries({
         queryKey: metisQueryKeys.tasksByChannel(task.channel_id),
       })
@@ -152,6 +216,7 @@ export function useCreateWorkerMutation() {
   return useMutation({
     mutationFn: (request: CreateWorkerRequest) => metisClient.workersCreate(request),
     onSuccess: (worker: Worker) => {
+      upsertWorker(worker)
       void queryClient.invalidateQueries({
         queryKey: metisQueryKeys.workersByTask(worker.task_id),
       })
@@ -165,6 +230,7 @@ export function useUpdateWorkerStateMutation() {
     mutationFn: (request: UpdateWorkerStateRequest) =>
       metisClient.workersUpdateState(request),
     onSuccess: (worker: Worker) => {
+      upsertWorker(worker)
       void queryClient.invalidateQueries({
         queryKey: metisQueryKeys.workersByTask(worker.task_id),
       })
@@ -178,6 +244,7 @@ export function useWorkerHeartbeatMutation() {
     mutationFn: (request: WorkerHeartbeatRequest) =>
       metisClient.workersHeartbeat(request),
     onSuccess: (worker: Worker) => {
+      upsertWorker(worker)
       void queryClient.invalidateQueries({
         queryKey: metisQueryKeys.workersByTask(worker.task_id),
       })
@@ -190,6 +257,7 @@ export function useAppendHistoryMutation() {
   return useMutation({
     mutationFn: (request: AppendHistoryRequest) => metisClient.historyAppend(request),
     onSuccess: (event: HistoryEvent) => {
+      upsertHistory(event)
       void queryClient.invalidateQueries({
         queryKey: metisQueryKeys.historyByChannel(event.channel_id),
       })

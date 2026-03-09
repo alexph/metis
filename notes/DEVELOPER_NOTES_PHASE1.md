@@ -251,3 +251,22 @@ Real query implementations, state transitions, and replay behavior should be add
   - create channel mutation
   - basic loading/error states using `MetisInvokeError`
 - Validation: `bun run build` now succeeds end-to-end.
+
+## 017 implementation update (TanStack DB sync)
+
+- Added TanStack DB packages:
+  - `@tanstack/db`
+  - `@tanstack/react-db`
+- Added normalized collection layer in `src/lib/metis/db.ts` for:
+  - channels
+  - branches
+  - tasks
+  - workers
+  - history
+- Added sync/upsert helpers to hydrate collection state from query/mutation responses.
+- Integrated query-to-DB syncing in `src/lib/metis/query.ts`:
+  - list query hooks now sync collection snapshots via `useEffect`
+  - mutation hooks upsert returned entities into collections before invalidation
+- Re-exported DB collections/sync helpers from `src/lib/metis/index.ts`.
+- Updated `src/routes/index.tsx` to read channels from TanStack DB via `useLiveQuery(() => channelsCollection)` while still using Query for fetching/mutations.
+- Validation: `bun run build` succeeds with Query + DB integration.

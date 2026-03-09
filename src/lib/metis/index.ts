@@ -1,5 +1,21 @@
 export { metisClient, MetisInvokeError } from './client'
 export {
+  branchesCollection,
+  channelsCollection,
+  historyCollection,
+  syncBranches,
+  syncChannels,
+  syncHistory,
+  syncTasks,
+  syncWorkers,
+  tasksCollection,
+  upsertChannel,
+  upsertHistory,
+  upsertTask,
+  upsertWorker,
+  workersCollection,
+} from './db'
+export {
   metisQueryClient,
   metisQueryKeys,
   useAppendHistoryMutation,

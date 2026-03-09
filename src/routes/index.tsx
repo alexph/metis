@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useLiveQuery } from '@tanstack/react-db'
 import { useState } from 'react'
 
 import {
   MetisInvokeError,
+  channelsCollection,
   useChannelsQuery,
   useCreateChannelMutation,
 } from '@/lib/metis'
@@ -13,6 +15,7 @@ function App() {
   const [title, setTitle] = useState('')
 
   const channelsQuery = useChannelsQuery()
+  const liveChannels = useLiveQuery(() => channelsCollection)
   const createChannelMutation = useCreateChannelMutation()
 
   function onCreateChannel() {
@@ -63,11 +66,11 @@ function App() {
       {renderError(channelError)}
       {renderError(createError)}
 
-      {channelsQuery.isLoading ? (
+      {channelsQuery.isLoading && !liveChannels.data ? (
         <p>Loading channels...</p>
       ) : (
         <ul className="space-y-2">
-          {(channelsQuery.data ?? []).map((channel) => (
+          {(liveChannels.data ?? channelsQuery.data ?? []).map((channel) => (
             <li key={channel.id} className="rounded border border-slate-200 px-3 py-2">
               <div className="font-medium">{channel.title}</div>
               <div className="text-sm text-slate-500">{channel.id}</div>
