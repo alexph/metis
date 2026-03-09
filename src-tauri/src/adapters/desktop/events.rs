@@ -2,6 +2,7 @@ use metis_contract::{
     channel::Channel, error::ErrorEnvelope, history::HistoryEvent, task::Task, worker::Worker,
 };
 use serde::{Deserialize, Serialize};
+use tauri::Emitter;
 
 pub const EVENT_CHANNEL_CREATED: &str = "metis://channel-created";
 pub const EVENT_CHANNEL_UPDATED: &str = "metis://channel-updated";
@@ -57,4 +58,13 @@ pub fn event_name(event: &DesktopEvent) -> &'static str {
         DesktopEvent::HistoryAppended(_) => EVENT_HISTORY_APPENDED,
         DesktopEvent::RuntimeStatusChanged(_) => EVENT_RUNTIME_STATUS_CHANGED,
     }
+}
+
+pub fn emit_tauri_event(app: &tauri::AppHandle, event: DesktopEvent) -> Result<(), ErrorEnvelope> {
+    let name = event_name(&event);
+    app.emit(name, event).map_err(|error| ErrorEnvelope {
+        code: "desktop_event_emit_error".to_string(),
+        message: "failed to emit desktop event".to_string(),
+        details: Some(error.to_string()),
+    })
 }

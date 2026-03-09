@@ -17,6 +17,7 @@ pub fn is_valid_worker_transition(from: WorkerState, to: WorkerState) -> bool {
 
 pub trait WorkerService {
     fn create_worker(&self, worker: Worker) -> Result<Worker, ServiceError>;
+    fn get(&self, worker_id: &str) -> Result<Option<Worker>, ServiceError>;
     fn list_by_task(&self, task_id: &str) -> Result<Vec<Worker>, ServiceError>;
     fn update_state(&self, worker_id: &str, state: WorkerState) -> Result<(), ServiceError>;
     fn heartbeat(&self, worker_id: &str, heartbeat_at: &str) -> Result<(), ServiceError>;
@@ -69,6 +70,13 @@ where
             return Err(ServiceError::validation("task id is required"));
         }
         self.repository.get_by_task(task_id).map_err(Into::into)
+    }
+
+    fn get(&self, worker_id: &str) -> Result<Option<Worker>, ServiceError> {
+        if worker_id.trim().is_empty() {
+            return Err(ServiceError::validation("worker id is required"));
+        }
+        self.repository.get(worker_id).map_err(Into::into)
     }
 
     fn update_state(&self, worker_id: &str, state: WorkerState) -> Result<(), ServiceError> {

@@ -171,3 +171,41 @@ Real query implementations, state transitions, and replay behavior should be add
   - `src-tauri/src/workers/mod.rs`
   - `src-tauri/src/history/mod.rs`
 - Kept desktop adapter stub service (`StubDesktopCommandService`) as an intentional bootstrap fallback path.
+
+## 014 implementation update (desktop event emission)
+
+- Added event plan `plans/014_desktop_event_emission_plan.md`.
+- Implemented a Tauri-backed event emitter helper in `src-tauri/src/adapters/desktop/events.rs`:
+  - `emit_tauri_event(app, event)` emits using the existing typed event names.
+- Wired best-effort emission from desktop command layer in `src-tauri/src/adapters/desktop/commands.rs`:
+  - `desktop_channels_create` emits `DesktopEvent::ChannelCreated` on success
+  - `desktop_tasks_enqueue` emits `DesktopEvent::TaskEnqueued` on success
+- Emit policy for this phase is non-blocking: command success still returns even if event emission fails; failures are logged with `tracing::warn`.
+
+### 014 extension update (additional mutating command emissions)
+
+- Expanded desktop command surface in `src-tauri/src/adapters/desktop/commands.rs` with additional mutating operations:
+  - `desktop_channels_update_status`
+  - `desktop_tasks_update_state`
+  - `desktop_workers_create`
+  - `desktop_workers_update_state`
+  - `desktop_workers_heartbeat`
+  - `desktop_history_append`
+- Added matching request DTOs and `DesktopCommandService` trait methods.
+- Wired these commands into `src-tauri/src/lib.rs` invoke handler.
+- Extended event emission coverage (best-effort) to emit on successful mutation results:
+  - `ChannelUpdated`
+  - `TaskStateChanged`
+  - `WorkerCreated`
+  - `WorkerStateChanged`
+  - `WorkerHeartbeat`
+  - `HistoryAppended`
+- Updated `SqliteDesktopCommandService` in `src-tauri/src/adapters/desktop/service.rs` to implement these operations and return post-mutation entities for event payloads.
+- Extended worker domain service trait with `get(worker_id)` to support post-update/heartbeat fetches for emitted payloads.
+
+### 014 test coverage update
+
+- Added adapter command tests in `src-tauri/src/adapters/desktop/commands.rs` for event routing helpers:
+  - verifies success responses map to expected event names for all emitted mutation events
+  - verifies error responses map to no event emission (`None`)
+- This gives fast regression coverage for command -> event-name/payload routing semantics without requiring a live Tauri app handle in tests.

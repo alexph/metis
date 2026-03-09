@@ -6,9 +6,11 @@ use sqlx::SqlitePool;
 use crate::{
     adapters::desktop::{
         commands::{
-            CreateChannelRequest, DesktopCommandService, EnqueueTaskRequest,
-            ListBranchesByChannelRequest, ListHistoryByBranchRequest, ListHistoryByChannelRequest,
-            ListTasksByChannelRequest, ListWorkersByTaskRequest,
+            AppendHistoryRequest, CreateChannelRequest, CreateWorkerRequest, DesktopCommandService,
+            EnqueueTaskRequest, ListBranchesByChannelRequest, ListHistoryByBranchRequest,
+            ListHistoryByChannelRequest, ListTasksByChannelRequest, ListWorkersByTaskRequest,
+            UpdateChannelStatusRequest, UpdateTaskStateRequest, UpdateWorkerStateRequest,
+            WorkerHeartbeatRequest,
         },
         errors::DesktopAdapterError,
     },
@@ -96,7 +98,9 @@ impl SqliteDesktopCommandService {
 
 impl DesktopCommandService for SqliteDesktopCommandService {
     fn channels_list(&self) -> Result<Vec<Channel>, DesktopAdapterError> {
-        self.channels.list_channels().map_err(Into::into)
+        self.channels
+            .list_channels()
+            .map_err(DesktopAdapterError::from)
     }
 
     fn channels_create(
@@ -105,7 +109,21 @@ impl DesktopCommandService for SqliteDesktopCommandService {
     ) -> Result<Channel, DesktopAdapterError> {
         self.channels
             .create_channel(request.channel)
-            .map_err(Into::into)
+            .map_err(DesktopAdapterError::from)
+    }
+
+    fn channels_update_status(
+        &self,
+        request: UpdateChannelStatusRequest,
+    ) -> Result<Channel, DesktopAdapterError> {
+        self.channels
+            .update_channel_status(&request.channel_id, request.status)
+            .map_err(DesktopAdapterError::from)?;
+
+        self.channels
+            .get_channel(&request.channel_id)
+            .map_err(DesktopAdapterError::from)?
+            .ok_or_else(|| DesktopAdapterError::Internal("updated channel not found".to_string()))
     }
 
     fn branches_list_by_channel(
@@ -114,11 +132,27 @@ impl DesktopCommandService for SqliteDesktopCommandService {
     ) -> Result<Vec<Branch>, DesktopAdapterError> {
         self.branches
             .list_by_channel(&request.channel_id)
-            .map_err(Into::into)
+            .map_err(DesktopAdapterError::from)
     }
 
     fn tasks_enqueue(&self, request: EnqueueTaskRequest) -> Result<Task, DesktopAdapterError> {
-        self.tasks.enqueue(request.task).map_err(Into::into)
+        self.tasks
+            .enqueue(request.task)
+            .map_err(DesktopAdapterError::from)
+    }
+
+    fn tasks_update_state(
+        &self,
+        request: UpdateTaskStateRequest,
+    ) -> Result<Task, DesktopAdapterError> {
+        self.tasks
+            .update_state(&request.task_id, request.state)
+            .map_err(DesktopAdapterError::from)?;
+
+        self.tasks
+            .get(&request.task_id)
+            .map_err(DesktopAdapterError::from)?
+            .ok_or_else(|| DesktopAdapterError::Internal("updated task not found".to_string()))
     }
 
     fn tasks_list_by_channel(
@@ -127,7 +161,7 @@ impl DesktopCommandService for SqliteDesktopCommandService {
     ) -> Result<Vec<Task>, DesktopAdapterError> {
         self.tasks
             .list_by_channel(&request.channel_id)
-            .map_err(Into::into)
+            .map_err(DesktopAdapterError::from)
     }
 
     fn workers_list_by_task(
@@ -136,7 +170,43 @@ impl DesktopCommandService for SqliteDesktopCommandService {
     ) -> Result<Vec<Worker>, DesktopAdapterError> {
         self.workers
             .list_by_task(&request.task_id)
-            .map_err(Into::into)
+            .map_err(DesktopAdapterError::from)
+    }
+
+    fn workers_create(&self, request: CreateWorkerRequest) -> Result<Worker, DesktopAdapterError> {
+        self.workers
+            .create_worker(request.worker)
+            .map_err(DesktopAdapterError::from)
+    }
+
+    fn workers_update_state(
+        &self,
+        request: UpdateWorkerStateRequest,
+    ) -> Result<Worker, DesktopAdapterError> {
+        self.workers
+            .update_state(&request.worker_id, request.state)
+            .map_err(DesktopAdapterError::from)?;
+
+        self.workers
+            .get(&request.worker_id)
+            .map_err(DesktopAdapterError::from)?
+            .ok_or_else(|| DesktopAdapterError::Internal("updated worker not found".to_string()))
+    }
+
+    fn workers_heartbeat(
+        &self,
+        request: WorkerHeartbeatRequest,
+    ) -> Result<Worker, DesktopAdapterError> {
+        self.workers
+            .heartbeat(&request.worker_id, &request.heartbeat_at)
+            .map_err(DesktopAdapterError::from)?;
+
+        self.workers
+            .get(&request.worker_id)
+            .map_err(DesktopAdapterError::from)?
+            .ok_or_else(|| {
+                DesktopAdapterError::Internal("worker not found after heartbeat".to_string())
+            })
     }
 
     fn history_list_by_channel(
@@ -145,7 +215,7 @@ impl DesktopCommandService for SqliteDesktopCommandService {
     ) -> Result<Vec<HistoryEvent>, DesktopAdapterError> {
         self.history
             .list_by_channel(&request.channel_id)
-            .map_err(Into::into)
+            .map_err(DesktopAdapterError::from)
     }
 
     fn history_list_by_branch(
@@ -154,6 +224,15 @@ impl DesktopCommandService for SqliteDesktopCommandService {
     ) -> Result<Vec<HistoryEvent>, DesktopAdapterError> {
         self.history
             .list_by_branch(&request.branch_id)
-            .map_err(Into::into)
+            .map_err(DesktopAdapterError::from)
+    }
+
+    fn history_append(
+        &self,
+        request: AppendHistoryRequest,
+    ) -> Result<HistoryEvent, DesktopAdapterError> {
+        self.history
+            .append_event(request.event)
+            .map_err(DesktopAdapterError::from)
     }
 }

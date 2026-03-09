@@ -25,12 +25,18 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             adapters::desktop::commands::desktop_channels_list,
             adapters::desktop::commands::desktop_channels_create,
+            adapters::desktop::commands::desktop_channels_update_status,
             adapters::desktop::commands::desktop_branches_list_by_channel,
             adapters::desktop::commands::desktop_tasks_enqueue,
+            adapters::desktop::commands::desktop_tasks_update_state,
             adapters::desktop::commands::desktop_tasks_list_by_channel,
             adapters::desktop::commands::desktop_workers_list_by_task,
+            adapters::desktop::commands::desktop_workers_create,
+            adapters::desktop::commands::desktop_workers_update_state,
+            adapters::desktop::commands::desktop_workers_heartbeat,
             adapters::desktop::commands::desktop_history_list_by_channel,
             adapters::desktop::commands::desktop_history_list_by_branch,
+            adapters::desktop::commands::desktop_history_append,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
