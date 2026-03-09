@@ -209,3 +209,13 @@ Real query implementations, state transitions, and replay behavior should be add
   - verifies success responses map to expected event names for all emitted mutation events
   - verifies error responses map to no event emission (`None`)
 - This gives fast regression coverage for command -> event-name/payload routing semantics without requiring a live Tauri app handle in tests.
+
+## Planning memory update (015-019)
+
+- Added forward plans for frontend-first Phase 1 completion sequence:
+  - `plans/015_frontend_invoke_client_plan.md`
+  - `plans/016_query_integration_plan.md`
+  - `plans/017_tanstack_db_sync_plan.md`
+  - `plans/018_ui_vertical_slice_plan.md`
+  - `plans/019_phase1_completion_hardening_plan.md`
+- This sequence intentionally targets full non-agent data loop completion (frontend send/receive + sync + hardening) before agent-specific UX/runtime work.
