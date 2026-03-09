@@ -219,3 +219,18 @@ Real query implementations, state transitions, and replay behavior should be add
   - `plans/018_ui_vertical_slice_plan.md`
   - `plans/019_phase1_completion_hardening_plan.md`
 - This sequence intentionally targets full non-agent data loop completion (frontend send/receive + sync + hardening) before agent-specific UX/runtime work.
+
+## 015 implementation update (frontend invoke client)
+
+- Added typed frontend invoke client under `src/lib/metis/`:
+  - `src/lib/metis/types.ts` (contract DTO/request/error types for desktop command boundary)
+  - `src/lib/metis/client.ts` (typed invoke wrappers + envelope normalization)
+  - `src/lib/metis/index.ts` (public exports)
+- Implemented one centralized invoke helper that:
+  - calls Tauri commands using `@tauri-apps/api/core`
+  - unwraps `CommandResponse<T>`
+  - maps envelope and transport failures to `MetisInvokeError` (`code`, `message`, `details`)
+- Added wrappers for full currently exposed desktop command surface (channels/branches/tasks/workers/history).
+- Validation notes:
+  - targeted type-check for new client files succeeds with ES2020 target.
+  - existing app-wide TypeScript build currently fails in unrelated route typing (`src/components/Header.tsx` about `/about`).

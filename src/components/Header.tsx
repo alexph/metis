@@ -1,5 +1,5 @@
-import { Link } from '@tanstack/react-router'
-import ThemeToggle from './ThemeToggle'
+import { Link } from "@tanstack/react-router";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
   return (
@@ -52,16 +52,9 @@ export default function Header() {
           <Link
             to="/"
             className="nav-link"
-            activeProps={{ className: 'nav-link is-active' }}
+            activeProps={{ className: "nav-link is-active" }}
           >
             Home
-          </Link>
-          <Link
-            to="/about"
-            className="nav-link"
-            activeProps={{ className: 'nav-link is-active' }}
-          >
-            About
           </Link>
           <a
             href="https://tanstack.com/start/latest/docs/framework/react/overview"
@@ -74,5 +67,5 @@ export default function Header() {
         </div>
       </nav>
     </header>
-  )
+  );
 }
