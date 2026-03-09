@@ -114,31 +114,3 @@ where
             .map_err(Into::into)
     }
 }
-
-pub struct StubTaskService;
-
-impl TaskService for StubTaskService {
-    fn enqueue(&self, _task: Task) -> Result<Task, ServiceError> {
-        Err(ServiceError::internal(
-            "tasks are scaffolding-only in phase 1",
-        ))
-    }
-
-    fn get(&self, _task_id: &str) -> Result<Option<Task>, ServiceError> {
-        Err(ServiceError::internal(
-            "tasks are scaffolding-only in phase 1",
-        ))
-    }
-
-    fn list_by_channel(&self, _channel_id: &str) -> Result<Vec<Task>, ServiceError> {
-        Err(ServiceError::internal(
-            "tasks are scaffolding-only in phase 1",
-        ))
-    }
-
-    fn update_state(&self, _task_id: &str, _state: TaskState) -> Result<(), ServiceError> {
-        Err(ServiceError::internal(
-            "tasks are scaffolding-only in phase 1",
-        ))
-    }
-}

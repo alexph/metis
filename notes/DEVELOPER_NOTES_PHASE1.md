@@ -115,3 +115,59 @@ Real query implementations, state transitions, and replay behavior should be add
   - `src-tauri/src/storage/models/history.rs`
 - Reused explicit mapping functions for all returned contract DTOs.
 - Added planning artifact `plans/010_repository_read_paths_plan.md`.
+
+## Planning memory update (011)
+
+- Added `plans/011_service_write_paths_plan.md` to define the remaining write/state completion pass for services and repositories.
+- Plan targets branch create, task state update, worker create/state/heartbeat, and history append so all existing service write methods can run end-to-end.
+
+## 011 implementation update (write/state paths)
+
+- Implemented remaining write/state repository methods in `src-tauri/src/storage/repositories.rs`:
+  - `branches.create`
+  - `tasks.update_state`
+  - `workers.create`
+  - `workers.get`
+  - `workers.update_state`
+  - `workers.heartbeat`
+  - `history.append`
+- Added storage mapping helpers in `src-tauri/src/storage/mappings.rs`:
+  - `task_state_to_storage`
+  - `worker_state_to_storage`
+- Added SQLx row decoding derives for write/readback models:
+  - `src-tauri/src/storage/models/worker.rs`
+  - `src-tauri/src/storage/models/history.rs`
+- Updated worker domain service transition check to use persisted current worker state via `WorkerRepository::get` before applying state transition rules.
+
+## 012 implementation update (integration tests)
+
+- Added focused integration tests in `src-tauri/tests/repository_service_flows.rs` covering:
+  - task state transition timestamp persistence
+  - worker state transition + heartbeat persistence
+  - history append + ordered list retrieval by channel/branch
+  - service-level invalid task transition conflict handling
+- Added per-test temporary SQLite harness with migrations and FK enforcement.
+- Added test planning artifact `plans/012_integration_tests_plan.md`.
+
+## Planning memory update (013)
+
+- Added `plans/013_desktop_adapter_command_tests_plan.md` to define adapter-command boundary tests for `CommandResponse<T>` shape, delegation behavior, and shared `ErrorEnvelope` mapping guarantees.
+
+## 013 implementation update (desktop adapter command tests)
+
+- Added unit tests in `src-tauri/src/adapters/desktop/commands.rs` to verify desktop command boundary behavior:
+  - `CommandResponse<T>` success shape serialization (`status: ok`)
+  - service error mapping to shared envelope (`service_validation_error`)
+  - storage error mapping passthrough (`storage_not_implemented`)
+  - stub service not-implemented mapping (`desktop_not_implemented`)
+- Refactored command handlers to delegate through internal `handle_*` helper functions so command behavior can be tested without Tauri runtime wiring.
+
+## Cleanup update
+
+- Removed now-unused domain stub service structs/impls from:
+  - `src-tauri/src/channels/mod.rs`
+  - `src-tauri/src/branches/mod.rs`
+  - `src-tauri/src/tasks/mod.rs`
+  - `src-tauri/src/workers/mod.rs`
+  - `src-tauri/src/history/mod.rs`
+- Kept desktop adapter stub service (`StubDesktopCommandService`) as an intentional bootstrap fallback path.

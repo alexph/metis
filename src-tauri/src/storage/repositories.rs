@@ -14,9 +14,11 @@ use crate::{
     core::time::now_utc_rfc3339,
     storage::{
         mappings::{
-            branch_record_to_contract, channel_contract_to_record, channel_record_to_contract,
-            channel_status_to_storage, history_record_to_contract, task_contract_to_record,
-            task_record_to_contract, worker_record_to_contract,
+            branch_contract_to_record, branch_record_to_contract, channel_contract_to_record,
+            channel_record_to_contract, channel_status_to_storage, history_contract_to_record,
+            history_record_to_contract, task_contract_to_record, task_record_to_contract,
+            task_state_to_storage, worker_contract_to_record, worker_record_to_contract,
+            worker_state_to_storage,
         },
         models::{BranchRecord, ChannelRecord, HistoryRecord, TaskRecord, WorkerRecord},
     },
@@ -97,6 +99,7 @@ pub trait TaskRepository {
 
 pub trait WorkerRepository {
     fn create(&self, worker: Worker) -> Result<Worker, StorageError>;
+    fn get(&self, id: &str) -> Result<Option<Worker>, StorageError>;
     fn get_by_task(&self, task_id: &str) -> Result<Vec<Worker>, StorageError>;
     fn update_state(&self, id: &str, state: WorkerState) -> Result<(), StorageError>;
     fn heartbeat(&self, id: &str, heartbeat_at: &str) -> Result<(), StorageError>;
@@ -237,8 +240,35 @@ impl SqliteBranchRepository {
 }
 
 impl BranchRepository for SqliteBranchRepository {
-    fn create(&self, _branch: Branch) -> Result<Branch, StorageError> {
-        Err(StorageError::NotImplemented("branches.create"))
+    fn create(&self, branch: Branch) -> Result<Branch, StorageError> {
+        let record = branch_contract_to_record(branch);
+        let pool = self._pool.clone();
+
+        tauri::async_runtime::block_on(async move {
+            sqlx::query(
+                "INSERT INTO branches (id, channel_id, parent_branch_id, name, is_active, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(&record.id)
+            .bind(&record.channel_id)
+            .bind(&record.parent_branch_id)
+            .bind(&record.name)
+            .bind(record.is_active)
+            .bind(&record.created_at)
+            .bind(&record.updated_at)
+            .execute(&pool)
+            .await?;
+
+            let inserted = sqlx::query_as::<_, BranchRecord>(
+                "SELECT id, channel_id, parent_branch_id, name, is_active, created_at, updated_at
+                 FROM branches WHERE id = ?",
+            )
+            .bind(&record.id)
+            .fetch_one(&pool)
+            .await?;
+
+            Ok(branch_record_to_contract(inserted))
+        })
     }
 
     fn list_by_channel(&self, channel_id: &str) -> Result<Vec<Branch>, StorageError> {
@@ -344,7 +374,50 @@ impl TaskRepository for SqliteTaskRepository {
     }
 
     fn update_state(&self, _id: &str, _state: TaskState) -> Result<(), StorageError> {
-        Err(StorageError::NotImplemented("tasks.update_state"))
+        let pool = self._pool.clone();
+        let id = _id.to_string();
+        let state_value = task_state_to_storage(_state);
+        let now = now_utc_rfc3339();
+
+        tauri::async_runtime::block_on(async move {
+            match _state {
+                TaskState::Running => {
+                    sqlx::query(
+                        "UPDATE tasks
+                         SET state = ?, updated_at = ?, started_at = COALESCE(started_at, ?), finished_at = NULL
+                         WHERE id = ?",
+                    )
+                    .bind(state_value)
+                    .bind(&now)
+                    .bind(&now)
+                    .bind(id)
+                    .execute(&pool)
+                    .await?;
+                }
+                TaskState::Completed | TaskState::Failed | TaskState::Cancelled => {
+                    sqlx::query(
+                        "UPDATE tasks
+                         SET state = ?, updated_at = ?, finished_at = ?
+                         WHERE id = ?",
+                    )
+                    .bind(state_value)
+                    .bind(&now)
+                    .bind(&now)
+                    .bind(id)
+                    .execute(&pool)
+                    .await?;
+                }
+                TaskState::Queued => {
+                    sqlx::query("UPDATE tasks SET state = ?, updated_at = ? WHERE id = ?")
+                        .bind(state_value)
+                        .bind(&now)
+                        .bind(id)
+                        .execute(&pool)
+                        .await?;
+                }
+            }
+            Ok(())
+        })
     }
 }
 
@@ -360,8 +433,55 @@ impl SqliteWorkerRepository {
 }
 
 impl WorkerRepository for SqliteWorkerRepository {
-    fn create(&self, _worker: Worker) -> Result<Worker, StorageError> {
-        Err(StorageError::NotImplemented("workers.create"))
+    fn create(&self, worker: Worker) -> Result<Worker, StorageError> {
+        let record = worker_contract_to_record(worker);
+        let pool = self._pool.clone();
+
+        tauri::async_runtime::block_on(async move {
+            sqlx::query(
+                "INSERT INTO workers (id, task_id, worker_type, state, attempt, last_heartbeat_at, started_at, finished_at, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(&record.id)
+            .bind(&record.task_id)
+            .bind(&record.worker_type)
+            .bind(&record.state)
+            .bind(record.attempt)
+            .bind(&record.last_heartbeat_at)
+            .bind(&record.started_at)
+            .bind(&record.finished_at)
+            .bind(&record.created_at)
+            .bind(&record.updated_at)
+            .execute(&pool)
+            .await?;
+
+            let inserted = sqlx::query_as::<_, WorkerRecord>(
+                "SELECT id, task_id, worker_type, state, attempt, last_heartbeat_at, started_at, finished_at, created_at, updated_at
+                 FROM workers WHERE id = ?",
+            )
+            .bind(&record.id)
+            .fetch_one(&pool)
+            .await?;
+
+            worker_record_to_contract(inserted)
+        })
+    }
+
+    fn get(&self, id: &str) -> Result<Option<Worker>, StorageError> {
+        let pool = self._pool.clone();
+        let id = id.to_string();
+
+        tauri::async_runtime::block_on(async move {
+            let record = sqlx::query_as::<_, WorkerRecord>(
+                "SELECT id, task_id, worker_type, state, attempt, last_heartbeat_at, started_at, finished_at, created_at, updated_at
+                 FROM workers WHERE id = ?",
+            )
+            .bind(id)
+            .fetch_optional(&pool)
+            .await?;
+
+            record.map(worker_record_to_contract).transpose()
+        })
     }
 
     fn get_by_task(&self, task_id: &str) -> Result<Vec<Worker>, StorageError> {
@@ -384,12 +504,69 @@ impl WorkerRepository for SqliteWorkerRepository {
         })
     }
 
-    fn update_state(&self, _id: &str, _state: WorkerState) -> Result<(), StorageError> {
-        Err(StorageError::NotImplemented("workers.update_state"))
+    fn update_state(&self, id: &str, state: WorkerState) -> Result<(), StorageError> {
+        let pool = self._pool.clone();
+        let id = id.to_string();
+        let state_value = worker_state_to_storage(state);
+        let now = now_utc_rfc3339();
+
+        tauri::async_runtime::block_on(async move {
+            match state {
+                WorkerState::Running => {
+                    sqlx::query(
+                        "UPDATE workers
+                         SET state = ?, updated_at = ?, started_at = COALESCE(started_at, ?), finished_at = NULL
+                         WHERE id = ?",
+                    )
+                    .bind(state_value)
+                    .bind(&now)
+                    .bind(&now)
+                    .bind(id)
+                    .execute(&pool)
+                    .await?;
+                }
+                WorkerState::Completed | WorkerState::Failed | WorkerState::Stopped => {
+                    sqlx::query(
+                        "UPDATE workers
+                         SET state = ?, updated_at = ?, finished_at = ?
+                         WHERE id = ?",
+                    )
+                    .bind(state_value)
+                    .bind(&now)
+                    .bind(&now)
+                    .bind(id)
+                    .execute(&pool)
+                    .await?;
+                }
+                WorkerState::Pending => {
+                    sqlx::query("UPDATE workers SET state = ?, updated_at = ? WHERE id = ?")
+                        .bind(state_value)
+                        .bind(&now)
+                        .bind(id)
+                        .execute(&pool)
+                        .await?;
+                }
+            }
+            Ok(())
+        })
     }
 
-    fn heartbeat(&self, _id: &str, _heartbeat_at: &str) -> Result<(), StorageError> {
-        Err(StorageError::NotImplemented("workers.heartbeat"))
+    fn heartbeat(&self, id: &str, heartbeat_at: &str) -> Result<(), StorageError> {
+        let pool = self._pool.clone();
+        let id = id.to_string();
+        let heartbeat_at = heartbeat_at.to_string();
+        let updated_at = now_utc_rfc3339();
+
+        tauri::async_runtime::block_on(async move {
+            sqlx::query("UPDATE workers SET last_heartbeat_at = ?, updated_at = ? WHERE id = ?")
+                .bind(heartbeat_at)
+                .bind(updated_at)
+                .bind(id)
+                .execute(&pool)
+                .await?;
+
+            Ok(())
+        })
     }
 }
 
@@ -405,8 +582,38 @@ impl SqliteHistoryRepository {
 }
 
 impl HistoryRepository for SqliteHistoryRepository {
-    fn append(&self, _event: HistoryEvent) -> Result<HistoryEvent, StorageError> {
-        Err(StorageError::NotImplemented("history.append"))
+    fn append(&self, event: HistoryEvent) -> Result<HistoryEvent, StorageError> {
+        let record = history_contract_to_record(event);
+        let pool = self._pool.clone();
+
+        tauri::async_runtime::block_on(async move {
+            sqlx::query(
+                "INSERT INTO history (id, channel_id, branch_id, task_id, worker_id, event_type, role, content_json, correlation_id, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(&record.id)
+            .bind(&record.channel_id)
+            .bind(&record.branch_id)
+            .bind(&record.task_id)
+            .bind(&record.worker_id)
+            .bind(&record.event_type)
+            .bind(&record.role)
+            .bind(&record.content_json)
+            .bind(&record.correlation_id)
+            .bind(&record.created_at)
+            .execute(&pool)
+            .await?;
+
+            let inserted = sqlx::query_as::<_, HistoryRecord>(
+                "SELECT id, channel_id, branch_id, task_id, worker_id, event_type, role, content_json, correlation_id, created_at
+                 FROM history WHERE id = ?",
+            )
+            .bind(&record.id)
+            .fetch_one(&pool)
+            .await?;
+
+            history_record_to_contract(inserted)
+        })
     }
 
     fn list_by_channel(&self, channel_id: &str) -> Result<Vec<HistoryEvent>, StorageError> {

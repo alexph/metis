@@ -241,6 +241,10 @@ fn format_task_state(value: TaskState) -> String {
     .to_string()
 }
 
+pub fn task_state_to_storage(value: TaskState) -> String {
+    format_task_state(value)
+}
+
 fn parse_worker_state(value: &str) -> Result<WorkerState, StorageError> {
     match value.to_ascii_lowercase().as_str() {
         "pending" => Ok(WorkerState::Pending),
@@ -264,6 +268,10 @@ fn format_worker_state(value: WorkerState) -> String {
         WorkerState::Stopped => "stopped",
     }
     .to_string()
+}
+
+pub fn worker_state_to_storage(value: WorkerState) -> String {
+    format_worker_state(value)
 }
 
 fn parse_optional_history_role(value: Option<String>) -> Result<Option<HistoryRole>, StorageError> {

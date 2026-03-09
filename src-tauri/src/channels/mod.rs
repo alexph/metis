@@ -80,35 +80,3 @@ where
             .map_err(Into::into)
     }
 }
-
-pub struct StubChannelService;
-
-impl ChannelService for StubChannelService {
-    fn create_channel(&self, _channel: Channel) -> Result<Channel, ServiceError> {
-        Err(ServiceError::internal(
-            "channels are scaffolding-only in phase 1",
-        ))
-    }
-
-    fn get_channel(&self, _channel_id: &str) -> Result<Option<Channel>, ServiceError> {
-        Err(ServiceError::internal(
-            "channels are scaffolding-only in phase 1",
-        ))
-    }
-
-    fn list_channels(&self) -> Result<Vec<Channel>, ServiceError> {
-        Err(ServiceError::internal(
-            "channels are scaffolding-only in phase 1",
-        ))
-    }
-
-    fn update_channel_status(
-        &self,
-        _channel_id: &str,
-        _status: ChannelStatus,
-    ) -> Result<(), ServiceError> {
-        Err(ServiceError::internal(
-            "channels are scaffolding-only in phase 1",
-        ))
-    }
-}

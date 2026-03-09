@@ -65,19 +65,3 @@ where
             .map_err(Into::into)
     }
 }
-
-pub struct StubBranchService;
-
-impl BranchService for StubBranchService {
-    fn create_branch(&self, _branch: Branch) -> Result<Branch, ServiceError> {
-        Err(ServiceError::internal(
-            "branches are scaffolding-only in phase 1",
-        ))
-    }
-
-    fn list_by_channel(&self, _channel_id: &str) -> Result<Vec<Branch>, ServiceError> {
-        Err(ServiceError::internal(
-            "branches are scaffolding-only in phase 1",
-        ))
-    }
-}

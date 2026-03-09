@@ -63,25 +63,3 @@ where
             .map_err(Into::into)
     }
 }
-
-pub struct StubHistoryService;
-
-impl HistoryService for StubHistoryService {
-    fn append_event(&self, _event: HistoryEvent) -> Result<HistoryEvent, ServiceError> {
-        Err(ServiceError::internal(
-            "history is scaffolding-only in phase 1",
-        ))
-    }
-
-    fn list_by_channel(&self, _channel_id: &str) -> Result<Vec<HistoryEvent>, ServiceError> {
-        Err(ServiceError::internal(
-            "history is scaffolding-only in phase 1",
-        ))
-    }
-
-    fn list_by_branch(&self, _branch_id: &str) -> Result<Vec<HistoryEvent>, ServiceError> {
-        Err(ServiceError::internal(
-            "history is scaffolding-only in phase 1",
-        ))
-    }
-}

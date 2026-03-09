@@ -76,7 +76,11 @@ where
             return Err(ServiceError::validation("worker id is required"));
         }
 
-        if !is_valid_worker_transition(WorkerState::Pending, state) {
+        let Some(worker) = self.repository.get(worker_id).map_err(ServiceError::from)? else {
+            return Err(ServiceError::not_found("worker not found"));
+        };
+
+        if !is_valid_worker_transition(worker.state, state) {
             return Err(ServiceError::conflict("invalid worker state transition"));
         }
 
@@ -95,33 +99,5 @@ where
         self.repository
             .heartbeat(worker_id, heartbeat_at)
             .map_err(Into::into)
-    }
-}
-
-pub struct StubWorkerService;
-
-impl WorkerService for StubWorkerService {
-    fn create_worker(&self, _worker: Worker) -> Result<Worker, ServiceError> {
-        Err(ServiceError::internal(
-            "workers are scaffolding-only in phase 1",
-        ))
-    }
-
-    fn list_by_task(&self, _task_id: &str) -> Result<Vec<Worker>, ServiceError> {
-        Err(ServiceError::internal(
-            "workers are scaffolding-only in phase 1",
-        ))
-    }
-
-    fn update_state(&self, _worker_id: &str, _state: WorkerState) -> Result<(), ServiceError> {
-        Err(ServiceError::internal(
-            "workers are scaffolding-only in phase 1",
-        ))
-    }
-
-    fn heartbeat(&self, _worker_id: &str, _heartbeat_at: &str) -> Result<(), ServiceError> {
-        Err(ServiceError::internal(
-            "workers are scaffolding-only in phase 1",
-        ))
     }
 }
