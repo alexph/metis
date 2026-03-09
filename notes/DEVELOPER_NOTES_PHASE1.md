@@ -233,4 +233,21 @@ Real query implementations, state transitions, and replay behavior should be add
 - Added wrappers for full currently exposed desktop command surface (channels/branches/tasks/workers/history).
 - Validation notes:
   - targeted type-check for new client files succeeds with ES2020 target.
-  - existing app-wide TypeScript build currently fails in unrelated route typing (`src/components/Header.tsx` about `/about`).
+  - app-wide TypeScript/frontend build now succeeds after route template cleanup.
+
+## 016 implementation update (TanStack Query integration)
+
+- Added TanStack Query dependency and integration layer:
+  - `@tanstack/react-query` in `package.json`
+  - query client/provider wiring in `src/main.tsx`
+- Added query module `src/lib/metis/query.ts` with:
+  - query key factory (`metisQueryKeys`)
+  - list query hooks for channels/branches/tasks/workers/history
+  - mutation hooks for channel/task/worker/history writes
+  - scoped cache invalidation strategy after successful mutations
+- Re-exported query client/hooks from `src/lib/metis/index.ts`.
+- Added first vertical usage of invoke + query hooks in `src/routes/index.tsx`:
+  - channels list query
+  - create channel mutation
+  - basic loading/error states using `MetisInvokeError`
+- Validation: `bun run build` now succeeds end-to-end.
