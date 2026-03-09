@@ -270,3 +270,17 @@ Real query implementations, state transitions, and replay behavior should be add
 - Re-exported DB collections/sync helpers from `src/lib/metis/index.ts`.
 - Updated `src/routes/index.tsx` to read channels from TanStack DB via `useLiveQuery(() => channelsCollection)` while still using Query for fetching/mutations.
 - Validation: `bun run build` succeeds with Query + DB integration.
+
+## 018 implementation update (UI vertical slice)
+
+- Expanded `src/routes/index.tsx` from placeholder to a working non-agent vertical slice:
+  - channels list + create channel
+  - channel selection
+  - tasks list by selected channel + enqueue task
+  - history list by selected channel + append history event
+- Kept data flow aligned with architecture:
+  - command calls go through typed invoke client wrappers
+  - async state is orchestrated by TanStack Query hooks
+  - rendered lists read from TanStack DB live collections via `useLiveQuery`
+- Added actionable loading, mutation pending, and error states using `MetisInvokeError` envelope fields.
+- Validation: `bun run build` succeeds with the vertical slice in place.
