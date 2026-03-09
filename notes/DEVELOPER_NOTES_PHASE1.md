@@ -284,3 +284,17 @@ Real query implementations, state transitions, and replay behavior should be add
   - rendered lists read from TanStack DB live collections via `useLiveQuery`
 - Added actionable loading, mutation pending, and error states using `MetisInvokeError` envelope fields.
 - Validation: `bun run build` succeeds with the vertical slice in place.
+
+## 019 implementation update (phase hardening)
+
+- Added frontend invoke-client tests in `src/lib/metis/client.test.ts` to harden command contract handling:
+  - unwrap `CommandResponse<T>` success payloads
+  - map envelope errors to `MetisInvokeError`
+  - map transport/invoke failures to `desktop_invoke_error`
+  - verify mutation commands pass `request` payload shape to Tauri invoke
+- Extended backend adapter command tests in `src-tauri/src/adapters/desktop/commands.rs`:
+  - added coverage that newly exposed mutation operations on stub service still return `desktop_not_implemented` envelope code
+- Validation checks now passing across both surfaces:
+  - `cargo test -p metis`
+  - `bun run test`
+  - `bun run build`

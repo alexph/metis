@@ -900,4 +900,42 @@ mod tests {
         assert!(event_for_channels_create(&err).is_none());
         assert!(event_for_channels_update_status(&err).is_none());
     }
+
+    #[test]
+    fn stub_service_new_mutations_return_not_implemented_envelope() {
+        let service = StubDesktopCommandService;
+
+        let channel_result =
+            command_result(service.channels_update_status(UpdateChannelStatusRequest {
+                channel_id: "channel-1".to_string(),
+                status: ChannelStatus::Archived,
+            }));
+        let task_result = command_result(service.tasks_update_state(UpdateTaskStateRequest {
+            task_id: "task-1".to_string(),
+            state: TaskState::Running,
+        }));
+        let history_result = command_result(service.history_append(AppendHistoryRequest {
+            event: HistoryEvent {
+                id: "hist-1".to_string(),
+                channel_id: "channel-1".to_string(),
+                branch_id: None,
+                task_id: None,
+                worker_id: None,
+                event_type: "message".to_string(),
+                role: None,
+                content_json: "{}".to_string(),
+                correlation_id: None,
+                created_at: "2026-01-01T00:00:00Z".to_string(),
+            },
+        }));
+
+        for response in [
+            serde_json::to_value(channel_result).expect("serialize channel response"),
+            serde_json::to_value(task_result).expect("serialize task response"),
+            serde_json::to_value(history_result).expect("serialize history response"),
+        ] {
+            assert_eq!(response["status"], "err");
+            assert_eq!(response["error"]["code"], "desktop_not_implemented");
+        }
+    }
 }
