@@ -218,6 +218,30 @@ Real query implementations, state transitions, and replay behavior should be add
   - `plans/017_tanstack_db_sync_plan.md`
   - `plans/018_ui_vertical_slice_plan.md`
   - `plans/019_phase1_completion_hardening_plan.md`
+
+## 020 implementation update (commands module refactor)
+
+- Replaced the backend `src-tauri/src/adapters` module with a new top-level `src-tauri/src/commands` module.
+- Split the former monolithic command file into domain modules:
+  - `channels.rs`
+  - `branches.rs`
+  - `tasks.rs`
+  - `workers.rs`
+  - `history.rs`
+- Kept shared command utilities grouped at the module root:
+  - `src-tauri/src/commands/errors.rs`
+  - `src-tauri/src/commands/events.rs`
+  - `src-tauri/src/commands/service.rs`
+- Renamed internal command-layer types to remove adapter/desktop boundary terminology:
+  - `DesktopAdapterError` -> `CommandError`
+  - `DesktopEvent` -> `CommandEvent`
+  - `DesktopCommandService` -> `CommandService`
+  - `SqliteDesktopCommandService` -> `SqliteCommandService`
+  - `DesktopCommandServices` -> `CommandServices`
+  - `StubDesktopCommandService` -> `StubCommandService`
+- Updated Tauri bootstrap and handler registration in `src-tauri/src/lib.rs` to use `crate::commands::*`.
+- Kept external invoke command names stable (`desktop_*`) so the frontend client and direct `invoke(...)` call sites did not need API changes.
+- Redistributed unit tests across the new domain modules and kept coverage for response mapping, event routing, and stub-service not-implemented behavior.
 - This sequence intentionally targets full non-agent data loop completion (frontend send/receive + sync + hardening) before agent-specific UX/runtime work.
 
 ## 015 implementation update (frontend invoke client)

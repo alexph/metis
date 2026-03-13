@@ -22,7 +22,7 @@ pub struct RuntimeStatusPayload {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", content = "payload", rename_all = "snake_case")]
-pub enum DesktopEvent {
+pub enum CommandEvent {
     ChannelCreated(Channel),
     ChannelUpdated(Channel),
     TaskEnqueued(Task),
@@ -34,33 +34,33 @@ pub enum DesktopEvent {
     RuntimeStatusChanged(RuntimeStatusPayload),
 }
 
-pub trait DesktopEventPublisher {
-    fn publish(&self, event: DesktopEvent) -> Result<(), ErrorEnvelope>;
+pub trait CommandEventPublisher {
+    fn publish(&self, event: CommandEvent) -> Result<(), ErrorEnvelope>;
 }
 
-pub struct NoopDesktopEventPublisher;
+pub struct NoopCommandEventPublisher;
 
-impl DesktopEventPublisher for NoopDesktopEventPublisher {
-    fn publish(&self, _event: DesktopEvent) -> Result<(), ErrorEnvelope> {
+impl CommandEventPublisher for NoopCommandEventPublisher {
+    fn publish(&self, _event: CommandEvent) -> Result<(), ErrorEnvelope> {
         Ok(())
     }
 }
 
-pub fn event_name(event: &DesktopEvent) -> &'static str {
+pub fn event_name(event: &CommandEvent) -> &'static str {
     match event {
-        DesktopEvent::ChannelCreated(_) => EVENT_CHANNEL_CREATED,
-        DesktopEvent::ChannelUpdated(_) => EVENT_CHANNEL_UPDATED,
-        DesktopEvent::TaskEnqueued(_) => EVENT_TASK_ENQUEUED,
-        DesktopEvent::TaskStateChanged(_) => EVENT_TASK_STATE_CHANGED,
-        DesktopEvent::WorkerCreated(_) => EVENT_WORKER_CREATED,
-        DesktopEvent::WorkerStateChanged(_) => EVENT_WORKER_STATE_CHANGED,
-        DesktopEvent::WorkerHeartbeat(_) => EVENT_WORKER_HEARTBEAT,
-        DesktopEvent::HistoryAppended(_) => EVENT_HISTORY_APPENDED,
-        DesktopEvent::RuntimeStatusChanged(_) => EVENT_RUNTIME_STATUS_CHANGED,
+        CommandEvent::ChannelCreated(_) => EVENT_CHANNEL_CREATED,
+        CommandEvent::ChannelUpdated(_) => EVENT_CHANNEL_UPDATED,
+        CommandEvent::TaskEnqueued(_) => EVENT_TASK_ENQUEUED,
+        CommandEvent::TaskStateChanged(_) => EVENT_TASK_STATE_CHANGED,
+        CommandEvent::WorkerCreated(_) => EVENT_WORKER_CREATED,
+        CommandEvent::WorkerStateChanged(_) => EVENT_WORKER_STATE_CHANGED,
+        CommandEvent::WorkerHeartbeat(_) => EVENT_WORKER_HEARTBEAT,
+        CommandEvent::HistoryAppended(_) => EVENT_HISTORY_APPENDED,
+        CommandEvent::RuntimeStatusChanged(_) => EVENT_RUNTIME_STATUS_CHANGED,
     }
 }
 
-pub fn emit_tauri_event(app: &tauri::AppHandle, event: DesktopEvent) -> Result<(), ErrorEnvelope> {
+pub fn emit_tauri_event(app: &tauri::AppHandle, event: CommandEvent) -> Result<(), ErrorEnvelope> {
     let name = event_name(&event);
     app.emit(name, event).map_err(|error| ErrorEnvelope {
         code: "desktop_event_emit_error".to_string(),
