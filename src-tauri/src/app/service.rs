@@ -1,24 +1,19 @@
 use metis_contract::{
-    branch::Branch,
-    channel::Channel,
-    history::HistoryEvent,
-    task::Task,
-    worker::Worker,
+    branch::Branch, channel::Channel, history::HistoryEvent, task::Task, worker::Worker,
 };
 use sqlx::SqlitePool;
 use std::sync::Arc;
 
 use crate::{
+    app::errors::CommandError,
+    app::requests::{
+        AppendHistoryRequest, CreateChannelRequest, CreateWorkerRequest, EnqueueTaskRequest,
+        ListBranchesByChannelRequest, ListHistoryByBranchRequest, ListHistoryByChannelRequest,
+        ListTasksByChannelRequest, ListWorkersByTaskRequest, UpdateChannelStatusRequest,
+        UpdateTaskStateRequest, UpdateWorkerStateRequest, WorkerHeartbeatRequest,
+    },
     branches::{BranchDomainService, BranchService},
     channels::{ChannelDomainService, ChannelService},
-    commands::{
-        branches::ListBranchesByChannelRequest,
-        channels::{CreateChannelRequest, UpdateChannelStatusRequest},
-        errors::CommandError,
-        history::{AppendHistoryRequest, ListHistoryByBranchRequest, ListHistoryByChannelRequest},
-        tasks::{EnqueueTaskRequest, ListTasksByChannelRequest, UpdateTaskStateRequest},
-        workers::{CreateWorkerRequest, ListWorkersByTaskRequest, UpdateWorkerStateRequest, WorkerHeartbeatRequest},
-    },
     history::{HistoryDomainService, HistoryService},
     storage::repositories::{
         SqliteBranchRepository, SqliteChannelRepository, SqliteHistoryRepository,
@@ -54,10 +49,7 @@ pub trait CommandService: Send + Sync {
         &self,
         request: UpdateWorkerStateRequest,
     ) -> Result<Worker, CommandError>;
-    fn workers_heartbeat(
-        &self,
-        request: WorkerHeartbeatRequest,
-    ) -> Result<Worker, CommandError>;
+    fn workers_heartbeat(&self, request: WorkerHeartbeatRequest) -> Result<Worker, CommandError>;
     fn history_list_by_channel(
         &self,
         request: ListHistoryByChannelRequest,
@@ -66,10 +58,7 @@ pub trait CommandService: Send + Sync {
         &self,
         request: ListHistoryByBranchRequest,
     ) -> Result<Vec<HistoryEvent>, CommandError>;
-    fn history_append(
-        &self,
-        request: AppendHistoryRequest,
-    ) -> Result<HistoryEvent, CommandError>;
+    fn history_append(&self, request: AppendHistoryRequest) -> Result<HistoryEvent, CommandError>;
 }
 
 pub struct StubCommandService;
@@ -130,10 +119,7 @@ impl CommandService for StubCommandService {
         Err(CommandError::NotImplemented("workers.update_state"))
     }
 
-    fn workers_heartbeat(
-        &self,
-        _request: WorkerHeartbeatRequest,
-    ) -> Result<Worker, CommandError> {
+    fn workers_heartbeat(&self, _request: WorkerHeartbeatRequest) -> Result<Worker, CommandError> {
         Err(CommandError::NotImplemented("workers.heartbeat"))
     }
 
@@ -156,6 +142,7 @@ impl CommandService for StubCommandService {
     }
 }
 
+#[derive(Clone)]
 pub struct CommandServices {
     command_service: Arc<dyn CommandService>,
 }
@@ -179,6 +166,10 @@ impl CommandServices {
 
     pub fn command_service(&self) -> &dyn CommandService {
         self.command_service.as_ref()
+    }
+
+    pub fn command_service_arc(&self) -> Arc<dyn CommandService> {
+        self.command_service.clone()
     }
 }
 
@@ -340,10 +331,7 @@ impl CommandService for SqliteCommandService {
             .ok_or_else(|| CommandError::Internal("updated worker not found".to_string()))
     }
 
-    fn workers_heartbeat(
-        &self,
-        request: WorkerHeartbeatRequest,
-    ) -> Result<Worker, CommandError> {
+    fn workers_heartbeat(&self, request: WorkerHeartbeatRequest) -> Result<Worker, CommandError> {
         self.workers
             .heartbeat(&request.worker_id, &request.heartbeat_at)
             .map_err(CommandError::from)?;

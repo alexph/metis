@@ -1,24 +1,22 @@
 use metis_contract::branch::Branch;
-use serde::{Deserialize, Serialize};
 
-use crate::commands::{command_result, service::{CommandService, CommandServices}, CommandResponse};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ListBranchesByChannelRequest {
-    pub channel_id: String,
-}
+use crate::{
+    app::requests::ListBranchesByChannelRequest,
+    app::response::{command_result, CommandResponse},
+    app::use_cases::{AppUseCases, CommandUseCases},
+};
 
 #[tauri::command]
 pub fn desktop_branches_list_by_channel(
-    services: tauri::State<'_, CommandServices>,
+    app_use_cases: tauri::State<'_, AppUseCases>,
     request: ListBranchesByChannelRequest,
 ) -> CommandResponse<Vec<Branch>> {
-    handle_branches_list_by_channel(services.command_service(), request)
+    handle_branches_list_by_channel(app_use_cases.inner(), request)
 }
 
 pub(crate) fn handle_branches_list_by_channel(
-    service: &dyn CommandService,
+    use_cases: &dyn CommandUseCases,
     request: ListBranchesByChannelRequest,
 ) -> CommandResponse<Vec<Branch>> {
-    command_result(service.branches_list_by_channel(request))
+    command_result(use_cases.branches_list_by_channel(request))
 }

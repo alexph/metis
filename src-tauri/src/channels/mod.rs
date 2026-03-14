@@ -1,16 +1,12 @@
 use metis_contract::channel::{Channel, ChannelStatus};
 
-use crate::{core::service_error::ServiceError, storage::repositories::ChannelRepository};
+use crate::{app::errors::Error, storage::repositories::ChannelRepository};
 
 pub trait ChannelService {
-    fn create_channel(&self, channel: Channel) -> Result<Channel, ServiceError>;
-    fn get_channel(&self, channel_id: &str) -> Result<Option<Channel>, ServiceError>;
-    fn list_channels(&self) -> Result<Vec<Channel>, ServiceError>;
-    fn update_channel_status(
-        &self,
-        channel_id: &str,
-        status: ChannelStatus,
-    ) -> Result<(), ServiceError>;
+    fn create_channel(&self, channel: Channel) -> Result<Channel, Error>;
+    fn get_channel(&self, channel_id: &str) -> Result<Option<Channel>, Error>;
+    fn list_channels(&self) -> Result<Vec<Channel>, Error>;
+    fn update_channel_status(&self, channel_id: &str, status: ChannelStatus) -> Result<(), Error>;
 }
 
 pub struct ChannelDomainService<R>
@@ -33,46 +29,42 @@ impl<R> ChannelService for ChannelDomainService<R>
 where
     R: ChannelRepository,
 {
-    fn create_channel(&self, channel: Channel) -> Result<Channel, ServiceError> {
+    fn create_channel(&self, channel: Channel) -> Result<Channel, Error> {
         if channel.id.trim().is_empty() {
-            return Err(ServiceError::validation("channel id is required"));
+            return Err(Error::validation("channel id is required"));
         }
 
         if channel.title.trim().is_empty() {
-            return Err(ServiceError::validation("channel title is required"));
+            return Err(Error::validation("channel title is required"));
         }
 
         self.repository.create(channel).map_err(Into::into)
     }
 
-    fn get_channel(&self, channel_id: &str) -> Result<Option<Channel>, ServiceError> {
+    fn get_channel(&self, channel_id: &str) -> Result<Option<Channel>, Error> {
         if channel_id.trim().is_empty() {
-            return Err(ServiceError::validation("channel id is required"));
+            return Err(Error::validation("channel id is required"));
         }
 
         self.repository.get(channel_id).map_err(Into::into)
     }
 
-    fn list_channels(&self) -> Result<Vec<Channel>, ServiceError> {
+    fn list_channels(&self) -> Result<Vec<Channel>, Error> {
         self.repository.list().map_err(Into::into)
     }
 
-    fn update_channel_status(
-        &self,
-        channel_id: &str,
-        status: ChannelStatus,
-    ) -> Result<(), ServiceError> {
+    fn update_channel_status(&self, channel_id: &str, status: ChannelStatus) -> Result<(), Error> {
         if channel_id.trim().is_empty() {
-            return Err(ServiceError::validation("channel id is required"));
+            return Err(Error::validation("channel id is required"));
         }
 
         if self
             .repository
             .get(channel_id)
-            .map_err(ServiceError::from)?
+            .map_err(Error::from)?
             .is_none()
         {
-            return Err(ServiceError::not_found("channel not found"));
+            return Err(Error::not_found("channel not found"));
         }
 
         self.repository
