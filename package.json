@@ -1,0 +1,10 @@
+{
+  "name": "metis",
+  "private": true,
+  "workspaces": [
+    "metis-desktop/"
+  ],
+  "scripts": {
+    "desktop:tauri": "bun --cwd metis-desktop/ tauri"
+  }
+}
