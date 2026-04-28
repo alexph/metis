@@ -13,6 +13,7 @@ dependencies = [
     "platformdirs>=4.9.4",
     "aiojobs>=1.4.0",
     "sqlmodel>=0.0.38",
+    "alembic>=1.18.4",
 ]
 
 [project.scripts]
@@ -38,4 +39,9 @@ target-version = "py310"
 select = ["E", "F", "I"]  # errors, pyflakes, imports
 
 [tool.taskipy.tasks]
-serve = "uvicorn --reload --app-dir src --reload-dir src --host 0.0.0.0 --port 8100 metis.rest.app:app"
+# serve = "uvicorn --reload --app-dir src --reload-dir src --host 0.0.0.0 --port 8100 metis.rest.app:app"
+serve = "metis start --dev"
+
+[tool.mypy]
+strict = true
+exclude = ["venv", ".venv", "alembic"]
